@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Øllie666 YouTube Karussell</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: transparent;
+            color: #d1d5db;
+        }
+        /* Verstecke Standard-Scrollbar für ein sauberes Karussell-Design */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 p-2 sm:p-4 min-h-screen flex items-center">
+
+    <div class="max-w-7xl mx-auto w-full relative group">
+        <!-- Status / Loading -->
+        <div id="loading" class="text-center py-12 text-slate-400">
+            <i class="fas fa-circle-notch fa-spin text-4xl text-purple-500 mb-3"></i>
+            <p class="font-medium text-slate-300">Lade Video-Slider...</p>
+        </div>
+
+        <!-- Scroll-Pfeil Links -->
+        <button onclick="scrollSlider(-1)" class="absolute -left-4 sm:-left-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-slate-900/90 border border-slate-700/80 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-purple-600 hover:border-purple-500 transition-all opacity-0 group-hover:opacity-100 cursor-pointer">
+            <i class="fas fa-chevron-left text-sm"></i>
+        </button>
+
+        <!-- Horizontales Video-Karussell -->
+        <div id="slider-container" class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth px-2 py-4 hidden">
+            <!-- Videos werden hier dynamisch eingefügt -->
+        </div>
+
+        <!-- Scroll-Pfeil Rechts -->
+        <button onclick="scrollSlider(1)" class="absolute -right-4 sm:-right-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-slate-900/90 border border-slate-700/80 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-purple-600 hover:border-purple-500 transition-all opacity-0 group-hover:opacity-100 cursor-pointer">
+            <i class="fas fa-chevron-right text-sm"></i>
+        </button>
+    </div>
+
+    <!-- Lightbox Video Modal -->
+    <div id="video-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="relative w-full max-w-5xl bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center z-20 transition-colors">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <div class="relative pt-[56.25%] w-full bg-black">
+                <iframe id="modal-iframe" class="absolute top-0 left-0 w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyBbyyj_VFDsgjNK3pu2DAqsX1MHqhFsRps'; 
+        const CHANNEL_HANDLE = 'ollie6662'; 
+
+        async function initSlider() {
+            try {
+                const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&forHandle=${CHANNEL_HANDLE}&part=id`);
+                const channelData = await channelRes.json();
+
+                if (!channelData.items || channelData.items.length === 0) {
+                    throw new Error("Kanal nicht gefunden.");
+                }
+
+                const realChannelId = channelData.items[0].id;
+
+                // Hole die neuesten 15 Videos für das Karussell
+                const searchRes = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${realChannelId}&part=snippet,id&order=date&maxResults=15&type=video`);
+                const searchData = await searchRes.json();
+
+                const videoIds = searchData.items.map(item => item.id.videoId).join(',');
+
+                const detailsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${videoIds}&part=snippet,contentDetails,statistics`);
+                const detailsData = await detailsRes.json();
+
+                renderSlider(detailsData.items);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('slider-container').classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').innerHTML = `<p class="text-red-400">Fehler beim Laden des Karussells.</p>`;
+            }
+        }
+
+        function renderSlider(items) {
+            const container = document.getElementById('slider-container');
+            container.innerHTML = '';
+
+            items.forEach(video => {
+                const snippet = video.snippet;
+                const stats = video.statistics || {};
+                const durationRaw = video.contentDetails ? video.contentDetails.duration : '';
+
+                const title = snippet.title;
+                const description = snippet.description || '';
+                const thumbnail = snippet.thumbnails.maxres?.url || snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url;
+                
+                const pubDate = new Date(snippet.publishedAt).toLocaleDateString('de-DE', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
+
+                const durationFormatted = durationRaw ? parseISO8601Duration(durationRaw) : 'HD';
+                const views = stats.viewCount ? parseInt(stats.viewCount).toLocaleString('de-DE') : '0';
+                const likes = stats.likeCount ? parseInt(stats.likeCount).toLocaleString('de-DE') : '0';
+                const comments = stats.commentCount ? parseInt(stats.commentCount).toLocaleString('de-DE') : '0';
+
+                const card = document.createElement('div');
+                // Feste Breite pro Karte, damit das Karussell horizontal scrollbar wird
+                card.className = 'group flex-shrink-0 w-[320px] sm:w-[360px] flex flex-col bg-slate-900/90 border border-slate-800/80 hover:border-purple-500/50 rounded-xl overflow-hidden transition-all duration-300 cursor-pointer shadow-lg';
+                card.onclick = () => openModal(video.id);
+
+                card.innerHTML = `
+                    <div class="relative aspect-video bg-slate-950 overflow-hidden">
+                        <img src="${thumbnail}" alt="${title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div class="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-950 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                                <i class="fas fa-play ml-0.5 text-lg"></i>
+                            </div>
+                        </div>
+                        <span class="absolute bottom-2.5 right-2.5 bg-black/80 text-white font-mono text-xs px-2 py-0.5 rounded font-semibold tracking-wide">
+                            ${durationFormatted}
+                        </span>
+                    </div>
+
+                    <div class="p-4 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white text-base group-hover:text-purple-300 transition-colors line-clamp-2 leading-snug mb-1">
+                                ${title}
+                            </h3>
+                            <p class="text-xs text-slate-400 mb-2">${pubDate}</p>
+                            <p class="text-xs text-slate-400 line-clamp-1 mb-3 font-normal">${description}</p>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-800/80 flex items-center gap-3 text-xs text-slate-400 font-medium">
+                            <span>${views} Aufrufe</span>
+                            <span>•</span>
+                            <span>${likes} Likes</span>
+                            <span>•</span>
+                            <span>${comments} Kommentare</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function scrollSlider(direction) {
+            const container = document.getElementById('slider-container');
+            const scrollAmount = 380 * direction; // Scrollt eine Kartenbreite weiter
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+
+        function parseISO8601Duration(isoDuration) {
+            const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+            const matches = isoDuration.match(regex);
+            if (!matches) return "HD";
+
+            const hours = parseInt(matches[1] || 0);
+            const minutes = parseInt(matches[2] || 0);
+            const seconds = parseInt(matches[3] || 0);
+
+            if (hours > 0) {
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            } else {
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+        }
+
+        function openModal(videoId) {
+            const modal = document.getElementById('video-modal');
+            const iframe = document.getElementById('modal-iframe');
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            modal.classList.add('flex');
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('video-modal');
+            const iframe = document.getElementById('modal-iframe');
+            iframe.src = '';
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('video-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'video-modal') closeModal();
+        });
+
+        initSlider();
+    </script>
+</body>
+</html>
