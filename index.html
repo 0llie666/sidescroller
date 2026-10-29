@@ -10,7 +10,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: transparent !important;
+            background-color: #121117 !important;
             color: #d1d5db;
         }
         /* Verstecke Standard-Scrollbar für ein sauberes Karussell-Design */
@@ -23,7 +23,7 @@
         }
     </style>
 </head>
-<body class="bg-transparent p-2 sm:p-4 min-h-screen flex items-center">
+<body class="p-2 sm:p-4 min-h-screen flex items-center" style="background-color: #121117;">
 
     <div class="max-w-7xl mx-auto w-full relative group">
         <!-- Status / Loading -->
@@ -137,4 +137,66 @@
                             <h3 class="font-semibold text-white text-base group-hover:text-purple-300 transition-colors line-clamp-2 leading-snug mb-1">
                                 ${title}
                             </h3>
-                            <p
+                            <p class="text-xs text-slate-400 mb-2">${pubDate}</p>
+                            <p class="text-xs text-slate-400 line-clamp-1 mb-3 font-normal">${description}</p>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-800/80 flex items-center gap-3 text-xs text-slate-400 font-medium">
+                            <span>${views} Aufrufe</span>
+                            <span>•</span>
+                            <span>${likes} Likes</span>
+                            <span>•</span>
+                            <span>${comments} Kommentare</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function scrollSlider(direction) {
+            const container = document.getElementById('slider-container');
+            const scrollAmount = 380 * direction;
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+
+        function parseISO8601Duration(isoDuration) {
+            const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+            const matches = isoDuration.match(regex);
+            if (!matches) return "HD";
+
+            const hours = parseInt(matches[1] || 0);
+            const minutes = parseInt(matches[2] || 0);
+            const seconds = parseInt(matches[3] || 0);
+
+            if (hours > 0) {
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            } else {
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+        }
+
+        function openModal(videoId) {
+            const modal = document.getElementById('video-modal');
+            const iframe = document.getElementById('modal-iframe');
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            modal.classList.add('flex');
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('video-modal');
+            const iframe = document.getElementById('modal-iframe');
+            iframe.src = '';
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('video-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'video-modal') closeModal();
+        });
+
+        initSlider();
+    </script>
+</body>
+</html>
