@@ -66,19 +66,25 @@
 
         async function initSlider() {
             try {
-                const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&forHandle=${CHANNEL_HANDLE}&part=id`);
+                // Hole die Uploads-Playlist-ID direkt über den Kanal-Handle
+                const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&forHandle=${CHANNEL_HANDLE}&part=contentDetails`);
                 const channelData = await channelRes.json();
 
                 if (!channelData.items || channelData.items.length === 0) {
                     throw new Error("Kanal nicht gefunden.");
                 }
 
-                const realChannelId = channelData.items[0].id;
+                const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
 
-                const searchRes = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${realChannelId}&part=snippet,id&order=date&maxResults=15&type=video`);
-                const searchData = await searchRes.json();
+                // Hole die neuesten 15 Videos aus der Uploads-Playlist
+                const playlistRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?key=${API_KEY}&playlistId=${uploadsPlaylistId}&part=snippet,contentDetails&maxResults=15`);
+                const playlistData = await playlistRes.json();
 
-                const videoIds = searchData.items.map(item => item.id.videoId).join(',');
+                if (!playlistData.items || playlistData.items.length === 0) {
+                    throw new Error("Keine Videos gefunden.");
+                }
+
+                const videoIds = playlistData.items.map(item => item.contentDetails.videoId).join(',');
 
                 const detailsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${videoIds}&part=snippet,contentDetails,statistics`);
                 const detailsData = await detailsRes.json();
@@ -89,7 +95,7 @@
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('loading').innerHTML = `<p class="text-red-400">Fehler beim Laden des Karussells.</p>`;
+                document.getElementById('loading').innerHTML = `<p class="text-red-400">Fehler beim Laden des Karussells: ${err.message}</p>`;
             }
         }
 
